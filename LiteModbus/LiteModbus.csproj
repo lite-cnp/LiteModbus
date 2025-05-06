@@ -5,10 +5,16 @@
     <RootNamespace>LiteModbus</RootNamespace>
     <AssemblyName>$(RootNamespace)</AssemblyName>
     <Platforms>x86;x64;AnyCPU</Platforms>
+    <RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net9.0-windows7.0'">
-		<PackageReference Include="System.IO.Ports" Version="9.0.4" />
+    <PackageReference Include="System.IO.Ports" Version="9.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="bin\x64\Release\net*\$(AssemblyName).dll" Pack="true" PackagePath="runtimes\win-x64\lib" />
+    <None Include="bin\x86\Release\net*\$(AssemblyName).dll" Pack="true" PackagePath="runtimes\win-x86\lib" />
   </ItemGroup>
 
 </Project>
