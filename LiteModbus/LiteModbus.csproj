@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <RootNamespace>ModbusUSB</RootNamespace>
+    <RootNamespace>LiteModbus</RootNamespace>
     <AssemblyName>$(RootNamespace)</AssemblyName>
     <Platforms>x86;x64;AnyCPU</Platforms>
   </PropertyGroup>
