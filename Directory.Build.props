@@ -1,0 +1,16 @@
+<Project>
+
+	<PropertyGroup>
+		<OutputType>Library</OutputType>
+		<LangVersion>latest</LangVersion>
+		<RepositoryType>git</RepositoryType>
+		<RepositoryUrl>https://github.com/lite-cnp/ModbusTCP</RepositoryUrl>
+	</PropertyGroup>
+  
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows7.0</TargetFramework>
+    <Version>0.0.0</Version>
+    <PackageOutputPath>$(SolutionDir)nupkg</PackageOutputPath>
+  </PropertyGroup>
+
+</Project>
