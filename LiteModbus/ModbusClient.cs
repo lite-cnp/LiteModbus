@@ -4,6 +4,8 @@ using System.Net;
 using System.IO.Ports;
 using System.IO;
 using LiteModbus.Enums;
+using System.Threading;
+using System.Diagnostics;
 
 namespace LiteModbus;
 
@@ -651,4 +653,21 @@ public class ModbusClient {
         return regs;
     }
 
+    /// <summary>
+    /// returns the number of nanoseconds required for the T parameter in MODBUS
+    /// </summary>
+    private uint CalculateTTime() {
+        const uint BITS_PER_CHAR = 11; // number of bits to a char
+        return 1000*(uint)Math.Ceiling(BITS_PER_CHAR / (double)serialport?.BaudRate);
+    }
+
+    private void PreciseWait(double ns, CancellationToken ct) {
+        Stopwatch sw = Stopwatch.StartNew();
+        long targetTicks = (long)(ns * Stopwatch.Frequency / 1000000000.0); 
+        SpinWait spinner = new();
+        while(sw.ElapsedTicks < targetTicks) {
+            ct.ThrowIfCancellationRequested();
+            spinner.SpinOnce();
+        }
+    }
 }
