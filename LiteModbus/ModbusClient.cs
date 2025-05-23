@@ -1,11 +1,9 @@
-﻿using System;
-using System.Net.Sockets;
-using System.Net;
-using System.IO.Ports;
+﻿using LiteModbus.Enums;
+using System;
 using System.IO;
-using LiteModbus.Enums;
+using System.IO.Ports;
+using System.Net.Sockets;
 using System.Threading;
-using System.Diagnostics;
 
 namespace LiteModbus;
 
@@ -23,8 +21,6 @@ public class ModbusClient {
     public byte[] receiveData;
     public byte[] sendData;
 
-    private Parity parity = Parity.Even;
-    private StopBits stopBits = StopBits.One;
     private bool connected = false;
 
     public delegate void ReceiveDataChangedHandler(object sender);
@@ -64,22 +60,6 @@ public class ModbusClient {
     public int Baudrate { get; set; } = 9600;
 
     /// <summary>
-    /// Gets or Sets the of Parity in case of serial connection
-    /// </summary>
-    public Parity Parity {
-        get {
-            if (serialport != null)
-                return parity;
-            else
-                return Parity.Even;
-        }
-        set {
-            if (serialport != null)
-                parity = value;
-        }
-    }
-
-    /// <summary>
     /// Returns "TRUE" if Client is connected to Server and "FALSE" if not. In case of Modbus RTU returns if COM-Port is opened
     /// </summary>
     public bool Connected {
@@ -102,25 +82,21 @@ public class ModbusClient {
     }
 
     /// <summary>
-    /// Gets or Sets the number of stopbits in case of serial connection
-    /// </summary>
-    public StopBits StopBits {
-        get {
-            if (serialport != null)
-                return stopBits;
-            else
-                return StopBits.One;
-        }
-        set {
-            if (serialport != null)
-                stopBits = value;
-        }
-    }
-
-    /// <summary>
     /// Gets or Sets the connection Timeout in case of ModbusTCP connection
     /// </summary>
     public int ConnectionTimeout { get; set; } = 1000;
+
+
+    public ModbusClient(string port, int baudrate, Parity parity, StopBits stopBits) {
+        serialport = new() {
+            PortName = port,
+            BaudRate = baudrate,
+            Parity = parity,
+            StopBits = stopBits,
+            WriteTimeout = 10000,
+            ReadTimeout = 10000
+        };
+    }
 
     /// <summary>
     /// Creates a serial modbus connection
@@ -158,12 +134,7 @@ public class ModbusClient {
     /// <param name="serialPort">Serial-Port Name e.G. "COM1"</param>
     public ModbusClient(string serialPort) {
         serialport = new() {
-            PortName = serialPort,
-            BaudRate = Baudrate,
-            Parity = Parity,
-            StopBits = StopBits,
-            WriteTimeout = WRITE_TIMEOUT_MS,
-            ReadTimeout = ConnectionTimeout
+            PortName = serialPort
         };
     }
 
@@ -176,48 +147,12 @@ public class ModbusClient {
     /// Establish connection to Master device in case of Modbus TCP. Opens COM-Port in case of Modbus RTU
     /// </summary>
     public void Connect() {
-        if (serialport != null) {
-            if (!serialport.IsOpen) {
-                serialport.BaudRate = Baudrate;
-                serialport.Parity = Parity;
-                serialport.StopBits = StopBits;
-                serialport.WriteTimeout = WRITE_TIMEOUT_MS;
-                serialport.ReadTimeout = ConnectionTimeout;
-                serialport.Open();
-                connected = true;
-            }
-            if (ConnectedChanged != null)
-                try {
-                    ConnectedChanged(this);
-                }
-                catch {
 
-                }
+        if (serialport.IsOpen) {
             return;
         }
-        if (!UDPFlag) {
-            tcpClient = new TcpClient();
-            var result = tcpClient.BeginConnect(IpAddress, Port, null, null);
-            var success = result.AsyncWaitHandle.WaitOne(ConnectionTimeout);
-            if (!success) {
-                throw new ConnectionException("connection timed out");
-            }
-            tcpClient.EndConnect(result);
 
-            //tcpClient = new TcpClient(ipAddress, port);
-            stream = tcpClient.GetStream();
-            stream.ReadTimeout = ConnectionTimeout;
-            connected = true;
-        }
-        else {
-            tcpClient = new TcpClient();
-            connected = true;
-        }
-        if (ConnectedChanged != null)
-            try {
-                ConnectedChanged(this);
-            }
-            catch { }
+        serialport.Open();
     }
 
     /// <summary>
@@ -634,21 +569,38 @@ public class ModbusClient {
         return regs;
     }
 
-    /// <summary>
-    /// returns the number of nanoseconds required for the T parameter in MODBUS
-    /// </summary>
-    private uint CalculateTTime() {
-        const uint BITS_PER_CHAR = 11; // number of bits to a char
-        return 1000 * (uint)Math.Ceiling(BITS_PER_CHAR / (double)serialport?.BaudRate);
+    public void WriteFloat(ushort address, float value) {
+        byte[] data = BitConverter.GetBytes(value);
+
+        if (!BitConverter.IsLittleEndian) {
+            Array.Reverse(data);
+        }
+
+        ushort reg1 = (ushort)((data[0] << 8) | data[1]);
+        ushort reg2 = (ushort)((data[2] << 8) | data[3]);
+
+        WriteMultipleRegisters(address, [reg1, reg2]);
     }
 
-    private void PreciseWait(double ns, CancellationToken ct) {
-        Stopwatch sw = Stopwatch.StartNew();
-        long targetTicks = (long)(ns * Stopwatch.Frequency / 1000000000.0);
-        SpinWait spinner = new();
-        while (sw.ElapsedTicks < targetTicks) {
-            ct.ThrowIfCancellationRequested();
-            spinner.SpinOnce();
+    public float ReadFloat(ushort address) {
+        ushort[] res = ReadHoldingRegisters(address, 2);
+
+        byte[] data = [
+            (byte)(res[0] >> 8),
+            (byte)res[0],
+            (byte)(res[1] >> 8),
+            (byte)res[1]
+        ];
+
+        if (!BitConverter.IsLittleEndian) {
+            Array.Reverse(data);
         }
+
+        return BitConverter.ToSingle(data, 0);
+    }
+
+    public ushort ReadRegister(ushort address) {
+        ushort[] res = ReadHoldingRegisters(address, 1);
+        return res[0];
     }
 }
